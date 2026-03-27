@@ -4,6 +4,7 @@ import { Film, AlertCircle } from "lucide-react";
 import AnalyzerInput from "@/components/AnalyzerInput";
 import ProgressBar from "@/components/ProgressBar";
 import FrameCard from "@/components/FrameCard";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface FrameResult {
@@ -12,62 +13,50 @@ interface FrameResult {
   description: string;
 }
 
-// Demo data generator — simulates what a real backend would return
-const generateDemoFrames = async (
-  url: string,
+/**
+ * Extracts demo frames (canvas-generated placeholders).
+ * In production, replace this with a call to a video processing API
+ * (e.g., Shotstack, api.video) that runs ffmpeg on the YouTube stream.
+ */
+const extractFrames = async (
+  _url: string,
   onProgress: (processed: number, total: number) => void
-): Promise<FrameResult[]> => {
-  const totalFrames = 8;
-  const frames: FrameResult[] = [];
-
-  const descriptions = [
-    "Opening shot — a wide establishing view of a brightly lit room with a presenter standing at center frame. Text overlay reads the video title.",
-    "Close-up of the speaker gesturing with both hands while explaining a concept. Background shows a blurred whiteboard with diagrams.",
-    "Screen recording showing a code editor with syntax-highlighted Python code. The cursor is actively typing a function definition.",
-    "Split-screen view — the speaker on the left reacting to a live demo running on the right side of the frame.",
-    "Animated diagram illustrating data flow between components. Arrows pulse in sequence showing the request lifecycle.",
-    "The speaker pauses and looks directly at the camera, emphasizing a key point. Lower third shows a caption summarizing the takeaway.",
-    "Terminal output scrolling rapidly as a build process completes successfully. Green checkmarks appear next to each step.",
-    "Closing frame with social media handles, a subscribe button overlay, and the channel logo centered on a dark background.",
-  ];
+): Promise<{ timestamp: string; imageBase64: string }[]> => {
+  const totalFrames = 6;
+  const raw: { timestamp: string; imageBase64: string }[] = [];
 
   for (let i = 0; i < totalFrames; i++) {
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 200));
     const seconds = (i + 1) * 3;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
+    const ts = `${mins}:${secs.toString().padStart(2, "0")}`;
 
-    // Generate a simple colored placeholder as base64
     const canvas = document.createElement("canvas");
     canvas.width = 640;
     canvas.height = 360;
     const ctx = canvas.getContext("2d")!;
-    // Dark cinematic gradient
     const grad = ctx.createLinearGradient(0, 0, 640, 360);
-    grad.addColorStop(0, `hsl(${200 + i * 15}, 30%, ${8 + i * 2}%)`);
-    grad.addColorStop(1, `hsl(${220 + i * 10}, 20%, ${5 + i}%)`);
+    grad.addColorStop(0, `hsl(${200 + i * 20}, 30%, ${10 + i * 3}%)`);
+    grad.addColorStop(1, `hsl(${230 + i * 15}, 25%, ${6 + i * 2}%)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 640, 360);
-    // Timestamp text
     ctx.fillStyle = "#f5a623";
-    ctx.font = "bold 28px monospace";
+    ctx.font = "bold 32px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(`${mins}:${secs.toString().padStart(2, "0")}`, 320, 190);
-    ctx.fillStyle = "#666";
-    ctx.font = "14px sans-serif";
-    ctx.fillText("Demo Frame — connect backend for real frames", 320, 220);
+    ctx.fillText(ts, 320, 185);
+    ctx.fillStyle = "#555";
+    ctx.font = "13px sans-serif";
+    ctx.fillText("Demo frame — plug in video processing API for real frames", 320, 215);
 
-    frames.push({
-      timestamp: `${mins}:${secs.toString().padStart(2, "0")}`,
-      imageBase64: canvas.toDataURL("image/jpeg"),
-      description: descriptions[i] || "Scene continues with additional content.",
-    });
-
+    raw.push({ timestamp: ts, imageBase64: canvas.toDataURL("image/jpeg") });
     onProgress(i + 1, totalFrames);
   }
 
-  return frames;
+  return raw;
 };
+
+const BATCH_SIZE = 3;
 
 const Index = () => {
   const [frames, setFrames] = useState<FrameResult[]>([]);
@@ -82,11 +71,46 @@ const Index = () => {
     setProgress({ processed: 0, total: 0 });
 
     try {
-      const results = await generateDemoFrames(url, (processed, total) => {
-        setProgress({ processed, total });
-      });
-      setFrames(results);
-      toast.success(`Analysis complete — ${results.length} frames processed`);
+      // Step 1: extract frames (demo mode — replace with real video API)
+      toast.info("Extracting frames...");
+      const rawFrames = await extractFrames(url, () => {});
+
+      // Step 2: send frames to AI in batches
+      const total = rawFrames.length;
+      setProgress({ processed: 0, total });
+      toast.info(`Analyzing ${total} frames with vision AI...`);
+
+      const allResults: FrameResult[] = [];
+
+      for (let i = 0; i < rawFrames.length; i += BATCH_SIZE) {
+        const batch = rawFrames.slice(i, i + BATCH_SIZE);
+
+        const { data, error: fnError } = await supabase.functions.invoke("analyze-frames", {
+          body: { frames: batch },
+        });
+
+        if (fnError) {
+          throw new Error(fnError.message || "Edge function call failed");
+        }
+
+        if (data?.error) {
+          // If we got partial results (rate limit), use them
+          if (data.partialResults) {
+            allResults.push(...data.partialResults);
+            setFrames([...allResults]);
+          }
+          throw new Error(data.error);
+        }
+
+        if (data?.frames) {
+          allResults.push(...data.frames);
+          setFrames([...allResults]);
+        }
+
+        setProgress({ processed: Math.min(i + BATCH_SIZE, total), total });
+      }
+
+      toast.success(`Done — ${allResults.length} frames analyzed`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Analysis failed";
       setError(msg);
