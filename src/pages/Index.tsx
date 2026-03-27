@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Film, AlertCircle } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import AnalyzerInput from "@/components/AnalyzerInput";
 import ProgressBar from "@/components/ProgressBar";
 import FrameCard from "@/components/FrameCard";
+import StatsStrip from "@/components/StatsStrip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -13,20 +13,13 @@ interface FrameResult {
   description: string;
 }
 
-/**
- * Extracts demo frames (canvas-generated placeholders).
- * In production, replace this with a call to a video processing API
- * (e.g., Shotstack, api.video) that runs ffmpeg on the YouTube stream.
- */
 const extractFrames = async (
-  _url: string,
-  onProgress: (processed: number, total: number) => void
+  _url: string
 ): Promise<{ timestamp: string; imageBase64: string }[]> => {
-  const totalFrames = 6;
+  const totalFrames = 8;
   const raw: { timestamp: string; imageBase64: string }[] = [];
 
   for (let i = 0; i < totalFrames; i++) {
-    await new Promise((r) => setTimeout(r, 200));
     const seconds = (i + 1) * 3;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -36,65 +29,65 @@ const extractFrames = async (
     canvas.width = 640;
     canvas.height = 360;
     const ctx = canvas.getContext("2d")!;
-    const grad = ctx.createLinearGradient(0, 0, 640, 360);
-    grad.addColorStop(0, `hsl(${200 + i * 20}, 30%, ${10 + i * 3}%)`);
-    grad.addColorStop(1, `hsl(${230 + i * 15}, 25%, ${6 + i * 2}%)`);
-    ctx.fillStyle = grad;
+    const hue = [12, 26, 40, 200, 220, 170, 300, 50][i % 8];
+    ctx.fillStyle = `hsl(${hue}, 14%, 93%)`;
     ctx.fillRect(0, 0, 640, 360);
-    ctx.fillStyle = "#f5a623";
-    ctx.font = "bold 32px monospace";
+    // Grid pattern
+    ctx.strokeStyle = `hsl(${hue}, 12%, 85%)`;
+    for (let x = 0; x < 640; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 360); ctx.stroke(); }
+    for (let y = 0; y < 360; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(640, y); ctx.stroke(); }
+    // Center icon
+    ctx.fillStyle = `hsl(${hue}, 30%, 55%)`;
+    ctx.globalAlpha = 0.18;
+    ctx.font = "bold 40px serif";
     ctx.textAlign = "center";
-    ctx.fillText(ts, 320, 185);
-    ctx.fillStyle = "#555";
-    ctx.font = "13px sans-serif";
-    ctx.fillText("Demo frame — plug in video processing API for real frames", 320, 215);
+    ctx.fillText("▶", 320, 195);
+    ctx.globalAlpha = 1;
 
     raw.push({ timestamp: ts, imageBase64: canvas.toDataURL("image/jpeg") });
-    onProgress(i + 1, totalFrames);
   }
-
   return raw;
 };
 
 const BATCH_SIZE = 3;
+const STATUS_MSGS = ["Fetching video stream…", "Extracting frames…", "Running vision AI…", "Generating descriptions…", "Almost done…"];
 
 const Index = () => {
   const [frames, setFrames] = useState<FrameResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
+  const [statusMsg, setStatusMsg] = useState("");
   const [error, setError] = useState("");
+  const [totalFrames, setTotalFrames] = useState(0);
+  const [totalVideos, setTotalVideos] = useState(0);
 
   const handleAnalyze = useCallback(async (url: string) => {
     setIsLoading(true);
     setFrames([]);
     setError("");
     setProgress({ processed: 0, total: 0 });
+    setStatusMsg(STATUS_MSGS[0]);
 
     try {
-      // Step 1: extract frames (demo mode — replace with real video API)
-      toast.info("Extracting frames...");
-      const rawFrames = await extractFrames(url, () => {});
-
-      // Step 2: send frames to AI in batches
+      setStatusMsg("Extracting frames…");
+      const rawFrames = await extractFrames(url);
       const total = rawFrames.length;
       setProgress({ processed: 0, total });
-      toast.info(`Analyzing ${total} frames with vision AI...`);
 
+      setStatusMsg("Running vision AI…");
       const allResults: FrameResult[] = [];
 
       for (let i = 0; i < rawFrames.length; i += BATCH_SIZE) {
         const batch = rawFrames.slice(i, i + BATCH_SIZE);
+        const msgIdx = Math.min(Math.floor(((i + BATCH_SIZE) / total) * STATUS_MSGS.length), STATUS_MSGS.length - 1);
+        setStatusMsg(STATUS_MSGS[msgIdx]);
 
         const { data, error: fnError } = await supabase.functions.invoke("analyze-frames", {
           body: { frames: batch },
         });
 
-        if (fnError) {
-          throw new Error(fnError.message || "Edge function call failed");
-        }
-
+        if (fnError) throw new Error(fnError.message || "Edge function call failed");
         if (data?.error) {
-          // If we got partial results (rate limit), use them
           if (data.partialResults) {
             allResults.push(...data.partialResults);
             setFrames([...allResults]);
@@ -106,10 +99,11 @@ const Index = () => {
           allResults.push(...data.frames);
           setFrames([...allResults]);
         }
-
         setProgress({ processed: Math.min(i + BATCH_SIZE, total), total });
       }
 
+      setTotalFrames((prev) => prev + allResults.length);
+      setTotalVideos((prev) => prev + 1);
       toast.success(`Done — ${allResults.length} frames analyzed`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Analysis failed";
@@ -122,95 +116,90 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Film className="w-4 h-4 text-gold" />
-          </div>
-          <h1 className="text-lg font-semibold text-foreground tracking-tight">
-            Frame<span className="text-gold">Lens</span>
-          </h1>
-          <span className="text-xs text-muted-foreground ml-1 border border-border px-2 py-0.5 rounded-full">
-            AI Video Analyzer
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-7 py-4 border-b border-border bg-background/90 backdrop-blur-[10px] sticky top-0 z-10">
+        <a href="#" className="flex items-baseline gap-[5px] no-underline text-foreground">
+          <span className="font-serif text-xl italic text-foreground">FrameAI</span>
+          <span className="text-[11px] font-medium font-mono text-accent-foreground bg-accent rounded-full px-[7px] py-[2px] tracking-[0.04em]">
+            beta
           </span>
-        </div>
-      </header>
+        </a>
+        <ul className="flex gap-1.5 list-none">
+          <li><a href="#" className="text-[13px] font-medium text-foreground bg-surface-2 no-underline py-[7px] px-3 rounded-md transition-colors">Analyze</a></li>
+          <li><a href="#" className="text-[13px] font-medium text-ink2 no-underline py-[7px] px-3 rounded-md transition-colors hover:bg-surface hover:text-foreground">History</a></li>
+          <li><a href="#" className="text-[13px] font-medium text-ink2 no-underline py-[7px] px-3 rounded-md transition-colors hover:bg-surface hover:text-foreground">Docs</a></li>
+        </ul>
+      </nav>
 
-      {/* Hero / Input */}
-      <section className="max-w-6xl mx-auto px-6 pt-16 pb-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10"
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Analyze any YouTube video,{" "}
-            <span className="text-gold">frame by frame</span>
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-lg mx-auto">
-            Paste a link below. We'll extract frames at 3-second intervals and use
-            vision AI to describe what's happening in each moment.
-          </p>
-        </motion.div>
+      {/* Hero */}
+      <section className="py-[72px] px-7 max-w-[760px] mx-auto text-center" aria-labelledby="hero-heading">
+        <div className="inline-flex items-center gap-[7px] text-xs font-medium font-mono text-accent-foreground bg-accent rounded-full px-3.5 py-[5px] mb-7 tracking-[0.05em]">
+          <span className="w-1.5 h-1.5 bg-accent-foreground rounded-full animate-[pulse-dot_2s_infinite]" />
+          AI vision · frame by frame
+        </div>
+        <h1 id="hero-heading" className="font-serif font-normal text-[clamp(36px,5.5vw,60px)] leading-[1.08] tracking-[-0.02em] text-foreground mb-[18px]">
+          See what's<br />happening <em className="italic text-ink3">inside</em><br />any video
+        </h1>
+        <p className="text-[17px] text-ink2 max-w-[460px] mx-auto mb-11 leading-[1.65] font-light">
+          Paste a YouTube URL. We extract a frame every 3 seconds and describe each moment in plain language.
+        </p>
 
         <AnalyzerInput onAnalyze={handleAnalyze} isLoading={isLoading} />
       </section>
 
+      <div className="h-px bg-border max-w-[960px] mx-auto" role="separator" />
+
+      {/* Stats */}
+      <StatsStrip totalFrames={totalFrames} totalVideos={totalVideos} />
+
       {/* Progress */}
       <AnimatePresence>
         {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="max-w-6xl mx-auto px-6 pb-8"
-          >
-            <ProgressBar processed={progress.processed} total={progress.total} />
-          </motion.div>
+          <ProgressBar processed={progress.processed} total={progress.total} statusMessage={statusMsg} />
         )}
       </AnimatePresence>
 
       {/* Error */}
       {error && (
-        <div className="max-w-6xl mx-auto px-6 pb-8">
-          <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="max-w-[960px] mx-auto px-7 pb-6">
+          <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3 font-mono">
             {error}
           </div>
         </div>
       )}
 
       {/* Results */}
-      {frames.length > 0 && (
-        <section className="max-w-6xl mx-auto px-6 pb-20">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs font-mono text-gold uppercase tracking-widest">
-              Timeline
-            </span>
-            <div className="h-px flex-1 bg-border" />
+      <section className="max-w-[960px] mx-auto px-7 pt-8 pb-16" aria-labelledby="results-heading">
+        {frames.length > 0 ? (
+          <>
+            <div className="flex items-baseline justify-between mb-6 flex-wrap gap-2">
+              <h2 className="font-serif text-[22px] font-normal text-foreground" id="results-heading">Frame timeline</h2>
+              <div className="text-xs font-mono text-ink3 flex items-center gap-3">
+                <span className="bg-surface border border-border rounded-full px-2.5 py-[3px]">{frames.length} frames</span>
+                <span className="bg-surface border border-border rounded-full px-2.5 py-[3px]">3s interval</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(272px,1fr))] gap-3.5" role="list" aria-label="Video frames with AI descriptions">
+              {frames.map((frame, i) => (
+                <FrameCard key={i} index={i} sceneNumber={i + 1} {...frame} />
+              ))}
+            </div>
+          </>
+        ) : !isLoading && !error ? (
+          <div className="text-center py-20">
+            <div className="w-[72px] h-[72px] bg-surface border border-border rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <rect x="2" y="4" width="24" height="17" rx="3" className="stroke-ink3" strokeWidth="1.5" />
+                <path d="M11 10l8 3.5-8 3.5V10z" className="stroke-ink3" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M9 24h10" className="stroke-ink3" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M14 21v3" className="stroke-ink3" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <h2 className="font-serif text-xl text-ink2 mb-1.5" id="results-heading">No video yet</h2>
+            <p className="text-sm text-ink3">Enter a YouTube URL above and hit Analyze to get started.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {frames.map((frame, i) => (
-              <FrameCard key={i} index={i} {...frame} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && frames.length === 0 && !error && (
-        <div className="max-w-6xl mx-auto px-6 py-20 text-center">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-secondary flex items-center justify-center mb-4">
-            <Film className="w-7 h-7 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground text-sm">
-            Your analysis results will appear here
-          </p>
-        </div>
-      )}
+        ) : null}
+      </section>
     </div>
   );
 };
