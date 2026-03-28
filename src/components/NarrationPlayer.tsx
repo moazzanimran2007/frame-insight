@@ -72,11 +72,8 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(
-        (v) => v.name.includes("Google") && v.lang.startsWith("en")
-      ) || voices.find((v) => v.lang.startsWith("en"));
-      if (preferred) utterance.voice = preferred;
+      const selectedVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+      if (selectedVoice) utterance.voice = selectedVoice;
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
