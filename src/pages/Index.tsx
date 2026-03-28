@@ -7,6 +7,7 @@ import StatsStrip from "@/components/StatsStrip";
 import NarrationPlayer from "@/components/NarrationPlayer";
 import AccessibilitySelector, { type AccessibilityMode } from "@/components/AccessibilitySelector";
 import SubtitlePanel from "@/components/SubtitlePanel";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
