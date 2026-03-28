@@ -4,6 +4,7 @@ import AnalyzerInput from "@/components/AnalyzerInput";
 import ProgressBar from "@/components/ProgressBar";
 import FrameCard from "@/components/FrameCard";
 import StatsStrip from "@/components/StatsStrip";
+import NarrationPlayer from "@/components/NarrationPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
