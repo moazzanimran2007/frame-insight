@@ -6,6 +6,7 @@ import FrameCard from "@/components/FrameCard";
 import StatsStrip from "@/components/StatsStrip";
 import NarrationPlayer from "@/components/NarrationPlayer";
 import AccessibilitySelector, { type AccessibilityMode } from "@/components/AccessibilitySelector";
+import ContentModeSelector, { type ContentMode } from "@/components/ContentModeSelector";
 import SubtitlePanel from "@/components/SubtitlePanel";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +28,9 @@ const STATUS_MSGS = [
 
 const Index = () => {
   const [accessMode, setAccessMode] = useState<AccessibilityMode | null>(null);
+  const [contentMode, setContentMode] = useState<ContentMode | null>(null);
   const [frames, setFrames] = useState<FrameResult[]>([]);
+  const [captions, setCaptions] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const [statusMsg, setStatusMsg] = useState("");
@@ -39,6 +42,7 @@ const Index = () => {
   const handleAnalyze = useCallback(async (url: string) => {
     setIsLoading(true);
     setFrames([]);
+    setCaptions(null);
     setError("");
     setCurrentVideoUrl(url);
     setStatusMsg(STATUS_MSGS[0]);
@@ -60,17 +64,18 @@ const Index = () => {
 
       const resultFrames: FrameResult[] = data?.frames || [];
       setFrames(resultFrames);
+      setCaptions(data?.captions || null);
       setProgress({ processed: resultFrames.length, total: resultFrames.length });
 
       if (data?.error) {
-        // Partial results with a warning
         toast.warning(data.error);
       }
 
       if (resultFrames.length > 0) {
         setTotalFrames((prev) => prev + resultFrames.length);
         setTotalVideos((prev) => prev + 1);
-        toast.success(`Done — ${resultFrames.length} frames analyzed`);
+        const captionNote = data?.captions ? " (with transcript)" : "";
+        toast.success(`Done — ${resultFrames.length} frames analyzed${captionNote}`);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Analysis failed";
@@ -80,6 +85,9 @@ const Index = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // Determine if URL input should be visible
+  const showInput = accessMode === "hearing" || (accessMode && contentMode);
 
   return (
     <div className="min-h-screen bg-background">
@@ -123,8 +131,16 @@ const Index = () => {
           Paste a YouTube URL. We extract frames and describe each moment with AI vision in plain language.
         </p>
 
-        <AccessibilitySelector onSelect={setAccessMode} selected={accessMode} />
-        <AnalyzerInput onAnalyze={handleAnalyze} isLoading={isLoading} />
+        {/* Step 1: Accessibility mode */}
+        <AccessibilitySelector onSelect={(m) => { setAccessMode(m); setContentMode(null); }} selected={accessMode} />
+
+        {/* Step 2: Content mode (only for visual/full) */}
+        {(accessMode === "visual" || accessMode === "full") && (
+          <ContentModeSelector onSelect={setContentMode} selected={contentMode} />
+        )}
+
+        {/* URL input — shown after full selection */}
+        {showInput && <AnalyzerInput onAnalyze={handleAnalyze} isLoading={isLoading} />}
       </section>
 
       <div className="h-px bg-border max-w-[960px] mx-auto" role="separator" />
@@ -153,11 +169,16 @@ const Index = () => {
         <YouTubeEmbed videoUrl={currentVideoUrl} />
       )}
 
-      {/* Results */}
-      {/* Narration */}
-      {frames.length > 0 && (accessMode === "visual" || accessMode === "full" || !accessMode) && (
-        <NarrationPlayer descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
+      {/* Narration — for visual/full modes */}
+      {frames.length > 0 && contentMode && accessMode !== "hearing" && (
+        <NarrationPlayer
+          descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
+          contentMode={contentMode}
+          captions={captions}
+        />
       )}
+
+      {/* Subtitles — for hearing mode */}
       {frames.length > 0 && accessMode === "hearing" && (
         <SubtitlePanel descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
       )}
@@ -173,6 +194,11 @@ const Index = () => {
                 <span className="bg-surface border border-border rounded-full px-2.5 py-[3px]">
                   {frames.length} frames
                 </span>
+                {captions && (
+                  <span className="bg-accent/10 border border-accent/20 text-accent-foreground rounded-full px-2.5 py-[3px]">
+                    transcript found
+                  </span>
+                )}
                 <span className="bg-surface border border-border rounded-full px-2.5 py-[3px]">
                   AI vision
                 </span>
@@ -198,7 +224,7 @@ const Index = () => {
               No video yet
             </h2>
             <p className="text-sm text-ink3">
-              Enter a YouTube URL above and hit Analyze to get started.
+              {accessMode ? "Enter a YouTube URL above and hit Analyze to get started." : "Select how you'd like to experience the video above."}
             </p>
           </div>
         ) : null}
