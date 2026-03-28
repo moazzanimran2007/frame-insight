@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { descriptions, mode } = await req.json();
+    const { descriptions, mode, captions } = await req.json();
 
     if (!descriptions || !Array.isArray(descriptions) || descriptions.length === 0) {
       return new Response(
@@ -21,9 +21,10 @@ serve(async (req) => {
       );
     }
 
-    if (!mode || !["describe", "story"].includes(mode)) {
+    const validModes = ["describe", "story", "entertainment", "explain", "summary"];
+    if (!mode || !validModes.includes(mode)) {
       return new Response(
-        JSON.stringify({ error: "Mode must be 'describe' or 'story'." }),
+        JSON.stringify({ error: `Mode must be one of: ${validModes.join(", ")}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -35,29 +36,69 @@ serve(async (req) => {
       .map((d: string, i: number) => `Frame ${i + 1}: ${d}`)
       .join("\n");
 
-    const systemPrompt =
-      mode === "describe"
-        ? `You are a professional audio describer for visually impaired audiences. Your job is to narrate a video so a blind listener can follow along naturally, as if watching it themselves.
+    const captionBlock = captions
+      ? `\n\nYouTube Captions / Transcript:\n${captions}`
+      : "";
+
+    const prompts: Record<string, string> = {
+      describe: `You are a professional audio describer for visually impaired audiences. Narrate the video so a blind listener can follow along naturally.
 
 Rules:
-- Write in present tense, as if the viewer is experiencing it live: "A man steps forward…", "The camera pans across…"
-- Flow continuously — do NOT list frames one by one. Merge consecutive frames that show the same scene into a single fluid passage.
-- Use natural temporal connectors: "As this happens…", "Meanwhile…", "A moment later…", "The scene shifts to…"
-- Mention visible text, on-screen graphics, and captions when they appear.
-- Describe people's appearance, clothing, expressions, and body language when relevant.
-- Note camera movements (zoom, pan, cut) only when they change the viewer's perspective meaningfully.
-- Vary sentence length and rhythm — mix short punchy observations with longer descriptive sentences so the narration feels alive, not robotic.
-- Do NOT start with "The video begins with" — open directly with what's happening.
-- Aim for 200–350 words. Be thorough but never repetitive.`
-        : `You are a gifted storyteller narrating a short film. Given frame-by-frame descriptions of a video, transform them into a vivid, emotionally engaging narrative.
+- Present tense, as if experiencing it live
+- Flow continuously — merge consecutive frames showing the same scene
+- Use natural connectors: "As this happens…", "Meanwhile…", "A moment later…"
+- Mention visible text, graphics, captions
+- Describe people's appearance, expressions, body language
+- Note meaningful camera movements
+- Vary sentence length and rhythm
+- Do NOT start with "The video begins with"
+${captions ? "- IMPORTANT: Weave in actual dialogue/lyrics from the transcript naturally. Quote key spoken lines." : ""}
+- Aim for 200–350 words.`,
+
+      story: `You are a gifted storyteller narrating a short film. Transform the footage into a vivid, emotionally engaging narrative.
 
 Rules:
-- Write in present tense with a cinematic voice.
-- Create atmosphere — describe light, mood, tension, energy.
-- Use metaphor and sensory language sparingly but effectively.
-- Build a narrative arc: setup → development → payoff, even from mundane footage.
-- Vary pacing — quick cuts get short sentences, slow scenes get flowing prose.
-- Keep it under 250 words. Every sentence should earn its place.`;
+- Present tense with a cinematic voice
+- Create atmosphere — light, mood, tension, energy
+- Use metaphor and sensory language sparingly but effectively
+- Build a narrative arc: setup → development → payoff
+- Vary pacing — quick cuts get short sentences, slow scenes get flowing prose
+${captions ? "- IMPORTANT: Incorporate actual dialogue and lyrics from the transcript. Quote memorable lines." : ""}
+- Keep it under 250 words.`,
+
+      entertainment: `You are an enthusiastic entertainment host narrating a video for someone who wants to FEEL the experience. This is about vibes, energy, emotion, and fun — NOT academic analysis.
+
+Rules:
+- Write like you're hyping up the moment: energetic, immersive, cinematic
+- If there's music or singing: highlight the chorus, the beat drops, the mood shifts, the artist's performance energy
+- If there's dialogue: quote the best lines, capture the tone
+- Use rhythm in your writing — short punchy lines for intense moments, flowing sentences for smooth ones
+- Describe the FEELING, not just what you see: "goosebumps as the bass hits", "the crowd goes wild"
+- Reference colors, lighting, visual aesthetics — "neon-drenched", "sun-soaked", "moody silhouettes"
+${captions ? "- CRITICAL: Use the actual lyrics/dialogue from the transcript. Quote them directly. Example: 'He belts out \"Never gonna give you up\" as the camera zooms in…'" : "- Since no transcript is available, describe the energy and visual performance"}
+- Keep it 150–250 words. Every sentence should make the reader feel something.`,
+
+      explain: `You are a clear, thorough video explainer. Walk through exactly what happens in this video, step by step.
+
+Rules:
+- Present tense, sequential order
+- Be precise about what's shown: people, actions, text, transitions
+- Explain context when possible — what's happening and why it matters
+- Merge similar consecutive frames but don't skip anything important
+${captions ? "- IMPORTANT: Include actual spoken words and dialogue from the transcript. Quote key statements." : ""}
+- Aim for 200–350 words. Be complete but not repetitive.`,
+
+      summary: `You are a concise video summarizer. Give a quick, punchy TLDR of what happened.
+
+Rules:
+- Maximum 3-4 sentences
+- Cover: WHO is in it, WHAT happens, and the KEY takeaway
+- Write casually, like texting a friend: "So basically…"
+${captions ? "- Include the most important quote or lyric if there is one." : ""}
+- Keep it under 60 words. Be direct.`,
+    };
+
+    const systemPrompt = prompts[mode] || prompts.explain;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -69,13 +110,23 @@ Rules:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Here are the video frame descriptions:\n\n${frameList}` },
+          { role: "user", content: `Here are the video frame descriptions:\n\n${frameList}${captionBlock}` },
         ],
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited, please try again shortly." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Credits exhausted. Please add funds." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       throw new Error(`AI generation failed (${response.status}): ${errText}`);
     }
 

@@ -334,8 +334,12 @@ serve(async (req) => {
     const youtubeId = extractYouTubeId(url);
 
     if (youtubeId) {
-      const result = await analyzeYouTube(youtubeId, LOVABLE_API_KEY);
-      return new Response(JSON.stringify(result), {
+      // Fetch frames and captions in parallel
+      const [result, captions] = await Promise.all([
+        analyzeYouTube(youtubeId, LOVABLE_API_KEY),
+        fetchYouTubeCaptions(youtubeId),
+      ]);
+      return new Response(JSON.stringify({ ...result, captions }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
