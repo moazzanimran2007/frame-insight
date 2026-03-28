@@ -5,6 +5,8 @@ import ProgressBar from "@/components/ProgressBar";
 import FrameCard from "@/components/FrameCard";
 import StatsStrip from "@/components/StatsStrip";
 import NarrationPlayer from "@/components/NarrationPlayer";
+import AccessibilitySelector, { type AccessibilityMode } from "@/components/AccessibilitySelector";
+import SubtitlePanel from "@/components/SubtitlePanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,6 +25,7 @@ const STATUS_MSGS = [
 ];
 
 const Index = () => {
+  const [accessMode, setAccessMode] = useState<AccessibilityMode | null>(null);
   const [frames, setFrames] = useState<FrameResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
@@ -117,6 +120,7 @@ const Index = () => {
           Paste a YouTube URL. We extract frames and describe each moment with AI vision in plain language.
         </p>
 
+        <AccessibilitySelector onSelect={setAccessMode} selected={accessMode} />
         <AnalyzerInput onAnalyze={handleAnalyze} isLoading={isLoading} />
       </section>
 
@@ -143,8 +147,11 @@ const Index = () => {
 
       {/* Results */}
       {/* Narration */}
-      {frames.length > 0 && (
+      {frames.length > 0 && (accessMode === "visual" || accessMode === "full" || !accessMode) && (
         <NarrationPlayer descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
+      )}
+      {frames.length > 0 && accessMode === "hearing" && (
+        <SubtitlePanel descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
       )}
 
       <section className="max-w-[960px] mx-auto px-7 pt-8 pb-16" aria-labelledby="results-heading">
