@@ -148,6 +148,11 @@ const Index = () => {
         </div>
       )}
 
+      {/* YouTube Embed */}
+      {frames.length > 0 && currentVideoUrl && (
+        <YouTubeEmbed videoUrl={currentVideoUrl} />
+      )}
+
       {/* Results */}
       {/* Narration */}
       {frames.length > 0 && (accessMode === "visual" || accessMode === "full" || !accessMode) && (
