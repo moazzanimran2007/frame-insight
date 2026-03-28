@@ -34,6 +34,7 @@ const Index = () => {
   const [error, setError] = useState("");
   const [totalFrames, setTotalFrames] = useState(0);
   const [totalVideos, setTotalVideos] = useState(0);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState("");
 
   const handleAnalyze = useCallback(async (url: string) => {
     setIsLoading(true);
