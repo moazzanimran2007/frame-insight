@@ -37,8 +37,27 @@ serve(async (req) => {
 
     const systemPrompt =
       mode === "describe"
-        ? `You are creating an audio description for a visually impaired listener. Given the following frame-by-frame descriptions of a video, create a clear, factual, sequential narration that describes exactly what is shown. Use phrases like "The video begins with...", "Next we see...", "At this point...". Include any visible text, people, actions, and scene changes. Keep it concise but thorough — aim for 150-300 words. Do not add opinions or creative embellishments.`
-        : `You are a creative storyteller. Given the following frame-by-frame descriptions of a video, weave them into an engaging, flowing narrative story. Use vivid language, smooth transitions between scenes, and dramatic flair where appropriate. Make it feel like a narrator telling a captivating tale. Keep it under 200 words.`;
+        ? `You are a professional audio describer for visually impaired audiences. Your job is to narrate a video so a blind listener can follow along naturally, as if watching it themselves.
+
+Rules:
+- Write in present tense, as if the viewer is experiencing it live: "A man steps forward…", "The camera pans across…"
+- Flow continuously — do NOT list frames one by one. Merge consecutive frames that show the same scene into a single fluid passage.
+- Use natural temporal connectors: "As this happens…", "Meanwhile…", "A moment later…", "The scene shifts to…"
+- Mention visible text, on-screen graphics, and captions when they appear.
+- Describe people's appearance, clothing, expressions, and body language when relevant.
+- Note camera movements (zoom, pan, cut) only when they change the viewer's perspective meaningfully.
+- Vary sentence length and rhythm — mix short punchy observations with longer descriptive sentences so the narration feels alive, not robotic.
+- Do NOT start with "The video begins with" — open directly with what's happening.
+- Aim for 200–350 words. Be thorough but never repetitive.`
+        : `You are a gifted storyteller narrating a short film. Given frame-by-frame descriptions of a video, transform them into a vivid, emotionally engaging narrative.
+
+Rules:
+- Write in present tense with a cinematic voice.
+- Create atmosphere — describe light, mood, tension, energy.
+- Use metaphor and sensory language sparingly but effectively.
+- Build a narrative arc: setup → development → payoff, even from mundane footage.
+- Vary pacing — quick cuts get short sentences, slow scenes get flowing prose.
+- Keep it under 250 words. Every sentence should earn its place.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
