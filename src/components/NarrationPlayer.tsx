@@ -22,10 +22,30 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
   const [activeLabel, setActiveLabel] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
-    return () => { window.speechSynthesis.cancel(); };
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length > 0) {
+        setVoices(available);
+        // Default to a good English voice
+        const preferred = available.find(
+          (v) => v.name.includes("Google") && v.lang.startsWith("en")
+        ) || available.find((v) => v.lang.startsWith("en"));
+        if (preferred && !selectedVoiceURI) {
+          setSelectedVoiceURI(preferred.voiceURI);
+        }
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
   }, []);
 
   const handleNarrate = useCallback(async (mode: string, label: string) => {
@@ -52,11 +72,8 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(
-        (v) => v.name.includes("Google") && v.lang.startsWith("en")
-      ) || voices.find((v) => v.lang.startsWith("en"));
-      if (preferred) utterance.voice = preferred;
+      const selectedVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+      if (selectedVoice) utterance.voice = selectedVoice;
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
@@ -95,6 +112,24 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
 
   return (
     <div className="max-w-[960px] mx-auto px-7 pb-6">
+      {/* Voice selector */}
+      {voices.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <label className="text-[11px] font-mono text-muted-foreground tracking-wide">Voice</label>
+          <select
+            value={selectedVoiceURI}
+            onChange={(e) => setSelectedVoiceURI(e.target.value)}
+            className="text-[12px] font-mono bg-background border border-border rounded-md px-2 py-1.5 text-foreground max-w-[260px] truncate focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {voices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => handleNarrate(config.narrationMode, config.label)}
