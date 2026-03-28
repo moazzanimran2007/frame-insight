@@ -133,6 +133,39 @@ const LiveCommentary = ({ videoUrl, descriptions, contentMode, captions }: LiveC
     };
   }, [videoId]);
 
+  // Speak active segment
+  const activeIndex = segments.findIndex(
+    (s) => currentTime >= s.startSec && currentTime < s.endSec
+  );
+
+  useEffect(() => {
+    if (!voiceEnabled || activeIndex < 0 || activeIndex === lastSpokenIndex.current) return;
+    lastSpokenIndex.current = activeIndex;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(segments[activeIndex].text);
+    utterance.rate = 1.05;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    const voice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+  }, [activeIndex, voiceEnabled, segments, voices, selectedVoiceURI]);
+
+  // Stop speech when video pauses
+  useEffect(() => {
+    if (!isPlaying) window.speechSynthesis.cancel();
+  }, [isPlaying]);
+
+  // Reset spoken index on seek
+  const seekTo = useCallback((sec: number) => {
+    lastSpokenIndex.current = -1;
+    if (playerRef.current?.seekTo) {
+      playerRef.current.seekTo(sec, true);
+      setCurrentTime(sec);
+    }
+  }, []);
+
   // Auto-scroll to active segment
   useEffect(() => {
     if (activeSegmentRef.current && containerRef.current) {
@@ -141,7 +174,7 @@ const LiveCommentary = ({ videoUrl, descriptions, contentMode, captions }: LiveC
         block: "center",
       });
     }
-  }, [currentTime]);
+  }, [activeIndex]);
 
   const generateCommentary = useCallback(async () => {
     setIsGenerating(true);
