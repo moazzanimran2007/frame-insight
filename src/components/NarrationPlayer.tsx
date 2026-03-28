@@ -112,6 +112,24 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
 
   return (
     <div className="max-w-[960px] mx-auto px-7 pb-6">
+      {/* Voice selector */}
+      {voices.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <label className="text-[11px] font-mono text-muted-foreground tracking-wide">Voice</label>
+          <select
+            value={selectedVoiceURI}
+            onChange={(e) => setSelectedVoiceURI(e.target.value)}
+            className="text-[12px] font-mono bg-background border border-border rounded-md px-2 py-1.5 text-foreground max-w-[260px] truncate focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {voices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => handleNarrate(config.narrationMode, config.label)}
