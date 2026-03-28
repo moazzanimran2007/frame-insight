@@ -11,6 +11,7 @@ import SubtitlePanel from "@/components/SubtitlePanel";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import ChatAssistant from "@/components/ChatAssistant";
 import VideoChatPanel from "@/components/VideoChatPanel";
+import VoiceAgent from "@/components/VoiceAgent";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -177,6 +178,13 @@ const Index = () => {
           descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
           contentMode={contentMode || "explain"}
           captions={captions}
+        />
+      )}
+
+      {/* Voice Agent — for visually impaired / full modes */}
+      {frames.length > 0 && (accessMode === "visual" || accessMode === "full") && (
+        <VoiceAgent
+          frameDescriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
         />
       )}
 
