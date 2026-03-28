@@ -162,7 +162,8 @@ export default function VoiceAgent({ frameDescriptions }: VoiceAgentProps) {
     recognition.start();
     setIsListening(true);
     setTranscript("");
-  }, [supported, transcript]);
+    transcriptRef.current = "";
+  }, [supported]);
 
   const stopAndProcess = useCallback(async () => {
     if (recognitionRef.current) {
