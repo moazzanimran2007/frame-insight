@@ -120,6 +120,7 @@ const Index = () => {
           Paste a YouTube URL. We extract frames and describe each moment with AI vision in plain language.
         </p>
 
+        <AccessibilitySelector onSelect={setAccessMode} selected={accessMode} />
         <AnalyzerInput onAnalyze={handleAnalyze} isLoading={isLoading} />
       </section>
 
