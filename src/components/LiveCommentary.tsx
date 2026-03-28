@@ -220,18 +220,6 @@ const LiveCommentary = ({ videoUrl, descriptions, contentMode, captions }: LiveC
     }
   }, [descriptions, contentMode, captions]);
 
-  // Seek to segment on click
-  const seekTo = useCallback((sec: number) => {
-    if (playerRef.current?.seekTo) {
-      playerRef.current.seekTo(sec, true);
-      setCurrentTime(sec);
-    }
-  }, []);
-
-  const activeIndex = segments.findIndex(
-    (s) => currentTime >= s.startSec && currentTime < s.endSec
-  );
-
   if (!videoId) return null;
 
   const config = MODE_CONFIG[contentMode];
