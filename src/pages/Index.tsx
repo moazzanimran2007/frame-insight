@@ -25,6 +25,7 @@ const STATUS_MSGS = [
 ];
 
 const Index = () => {
+  const [accessMode, setAccessMode] = useState<AccessibilityMode | null>(null);
   const [frames, setFrames] = useState<FrameResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
