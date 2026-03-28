@@ -21,6 +21,7 @@ export default function VoiceAgent({ frameDescriptions }: VoiceAgentProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const transcriptRef = useRef("");
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef(window.speechSynthesis);
