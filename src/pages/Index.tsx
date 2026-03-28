@@ -9,6 +9,7 @@ import AccessibilitySelector, { type AccessibilityMode } from "@/components/Acce
 import ContentModeSelector, { type ContentMode } from "@/components/ContentModeSelector";
 import SubtitlePanel from "@/components/SubtitlePanel";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import ChatAssistant from "@/components/ChatAssistant";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
