@@ -20,6 +20,57 @@ function extractYouTubeId(url: string): string | null {
   return null;
 }
 
+async function fetchYouTubeCaptions(videoId: string): Promise<string | null> {
+  try {
+    // Fetch the video page to extract caption track URLs
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+    });
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+
+    // Extract captions player response
+    const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!captionMatch) return null;
+
+    const tracks = JSON.parse(captionMatch[1]);
+    // Prefer English, fall back to first available
+    const track = tracks.find((t: any) => t.languageCode === "en") || tracks[0];
+    if (!track?.baseUrl) return null;
+
+    // Fetch the caption XML
+    const captionRes = await fetch(track.baseUrl);
+    if (!captionRes.ok) return null;
+    const xml = await captionRes.text();
+
+    // Parse XML to extract text with timestamps
+    const entries: string[] = [];
+    const regex = /<text start="([\d.]+)"[^>]*>(.*?)<\/text>/gs;
+    let match;
+    while ((match = regex.exec(xml)) !== null) {
+      const startSec = parseFloat(match[1]);
+      const text = match[2]
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/<[^>]+>/g, "")
+        .trim();
+      if (text) {
+        const mins = Math.floor(startSec / 60);
+        const secs = Math.floor(startSec % 60);
+        entries.push(`[${mins}:${secs.toString().padStart(2, "0")}] ${text}`);
+      }
+    }
+
+    return entries.length > 0 ? entries.join("\n") : null;
+  } catch (e) {
+    console.error("Caption fetch error:", e);
+    return null;
+  }
+}
+
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
