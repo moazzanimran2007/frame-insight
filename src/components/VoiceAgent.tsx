@@ -180,6 +180,7 @@ export default function VoiceAgent({ frameDescriptions }: VoiceAgentProps) {
     const updatedConvo = [...conversation, { role: "user" as const, text: userText }];
     setConversation(updatedConvo);
     setTranscript("");
+    transcriptRef.current = "";
     setIsThinking(true);
 
     try {
