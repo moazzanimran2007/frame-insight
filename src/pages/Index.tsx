@@ -4,6 +4,7 @@ import AnalyzerInput from "@/components/AnalyzerInput";
 import ProgressBar from "@/components/ProgressBar";
 import FrameCard from "@/components/FrameCard";
 import StatsStrip from "@/components/StatsStrip";
+import NarrationPlayer from "@/components/NarrationPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -141,6 +142,11 @@ const Index = () => {
       )}
 
       {/* Results */}
+      {/* Narration */}
+      {frames.length > 0 && (
+        <NarrationPlayer descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
+      )}
+
       <section className="max-w-[960px] mx-auto px-7 pt-8 pb-16" aria-labelledby="results-heading">
         {frames.length > 0 ? (
           <>
