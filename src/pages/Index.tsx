@@ -9,6 +9,7 @@ import AccessibilitySelector, { type AccessibilityMode } from "@/components/Acce
 import ContentModeSelector, { type ContentMode } from "@/components/ContentModeSelector";
 import SubtitlePanel from "@/components/SubtitlePanel";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import LiveCommentary from "@/components/LiveCommentary";
 import ChatAssistant from "@/components/ChatAssistant";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -165,18 +166,19 @@ const Index = () => {
         </div>
       )}
 
-      {/* YouTube Embed */}
-      {frames.length > 0 && currentVideoUrl && (
-        <YouTubeEmbed videoUrl={currentVideoUrl} />
-      )}
-
-      {/* Narration — for visual/full modes */}
-      {frames.length > 0 && accessMode !== "hearing" && (
-        <NarrationPlayer
+      {/* Live Commentary — replaces separate embed + narration for visual/full */}
+      {frames.length > 0 && currentVideoUrl && accessMode !== "hearing" && (
+        <LiveCommentary
+          videoUrl={currentVideoUrl}
           descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
           contentMode={contentMode || "explain"}
           captions={captions}
         />
+      )}
+
+      {/* Fallback embed for hearing mode */}
+      {frames.length > 0 && currentVideoUrl && accessMode === "hearing" && (
+        <YouTubeEmbed videoUrl={currentVideoUrl} />
       )}
 
       {/* Subtitles — for hearing mode */}
