@@ -6,7 +6,7 @@ interface AnalyzerInputProps {
   isLoading: boolean;
 }
 
-const YOUTUBE_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[\w-]{11}/;
+const YOUTUBE_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)[\w-]{11}/;
 
 const EXAMPLES = [
   { label: "Try an example", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
