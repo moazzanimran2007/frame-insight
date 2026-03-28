@@ -22,10 +22,30 @@ const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlaye
   const [activeLabel, setActiveLabel] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
-    return () => { window.speechSynthesis.cancel(); };
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length > 0) {
+        setVoices(available);
+        // Default to a good English voice
+        const preferred = available.find(
+          (v) => v.name.includes("Google") && v.lang.startsWith("en")
+        ) || available.find((v) => v.lang.startsWith("en"));
+        if (preferred && !selectedVoiceURI) {
+          setSelectedVoiceURI(preferred.voiceURI);
+        }
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
   }, []);
 
   const handleNarrate = useCallback(async (mode: string, label: string) => {
