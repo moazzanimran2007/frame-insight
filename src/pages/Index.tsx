@@ -181,6 +181,13 @@ const Index = () => {
         />
       )}
 
+      {/* Voice Agent — for visually impaired / full modes */}
+      {frames.length > 0 && (accessMode === "visual" || accessMode === "full") && (
+        <VoiceAgent
+          frameDescriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
+        />
+      )}
+
       {/* Subtitles — for hearing mode */}
       {frames.length > 0 && accessMode === "hearing" && (
         <SubtitlePanel descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)} />
