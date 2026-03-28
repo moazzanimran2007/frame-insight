@@ -10,6 +10,7 @@ import ContentModeSelector, { type ContentMode } from "@/components/ContentModeS
 import SubtitlePanel from "@/components/SubtitlePanel";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import ChatAssistant from "@/components/ChatAssistant";
+import VideoChatPanel from "@/components/VideoChatPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -230,6 +231,13 @@ const Index = () => {
           </div>
         ) : null}
       </section>
+
+      {/* Video Chat Panel — shown after analysis */}
+      {frames.length > 0 && (
+        <VideoChatPanel
+          frameDescriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
+        />
+      )}
 
       <ChatAssistant />
     </div>
