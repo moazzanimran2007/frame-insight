@@ -7,6 +7,7 @@ import StatsStrip from "@/components/StatsStrip";
 import NarrationPlayer from "@/components/NarrationPlayer";
 import AccessibilitySelector, { type AccessibilityMode } from "@/components/AccessibilitySelector";
 import SubtitlePanel from "@/components/SubtitlePanel";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,11 +34,13 @@ const Index = () => {
   const [error, setError] = useState("");
   const [totalFrames, setTotalFrames] = useState(0);
   const [totalVideos, setTotalVideos] = useState(0);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState("");
 
   const handleAnalyze = useCallback(async (url: string) => {
     setIsLoading(true);
     setFrames([]);
     setError("");
+    setCurrentVideoUrl(url);
     setStatusMsg(STATUS_MSGS[0]);
     setProgress({ processed: 0, total: 1 });
 
@@ -143,6 +146,11 @@ const Index = () => {
             {error}
           </div>
         </div>
+      )}
+
+      {/* YouTube Embed */}
+      {frames.length > 0 && currentVideoUrl && (
+        <YouTubeEmbed videoUrl={currentVideoUrl} />
       )}
 
       {/* Results */}
