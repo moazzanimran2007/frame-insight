@@ -170,10 +170,10 @@ const Index = () => {
       )}
 
       {/* Narration — for visual/full modes */}
-      {frames.length > 0 && contentMode && accessMode !== "hearing" && (
+      {frames.length > 0 && accessMode !== "hearing" && (
         <NarrationPlayer
           descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
-          contentMode={contentMode}
+          contentMode={contentMode || "explain"}
           captions={captions}
         />
       )}
