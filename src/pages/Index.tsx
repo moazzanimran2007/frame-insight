@@ -232,6 +232,13 @@ const Index = () => {
         ) : null}
       </section>
 
+      {/* Video Chat Panel — shown after analysis */}
+      {frames.length > 0 && (
+        <VideoChatPanel
+          frameDescriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
+        />
+      )}
+
       <ChatAssistant />
     </div>
   );
