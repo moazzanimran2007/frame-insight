@@ -2,41 +2,43 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { ContentMode } from "./ContentModeSelector";
 
 interface NarrationPlayerProps {
   descriptions: string[];
+  contentMode: ContentMode;
+  captions: string | null;
 }
 
-type NarrationMode = "describe" | "story";
+const MODE_CONFIG: Record<ContentMode, { narrationMode: string; label: string; icon: string }> = {
+  entertainment: { narrationMode: "entertainment", label: "🎧 Entertainment", icon: "🎧" },
+  explain: { narrationMode: "explain", label: "🎓 Explanation", icon: "🎓" },
+  summary: { narrationMode: "summary", label: "⚡ Summary", icon: "⚡" },
+};
 
-const NarrationPlayer = ({ descriptions }: NarrationPlayerProps) => {
+const NarrationPlayer = ({ descriptions, contentMode, captions }: NarrationPlayerProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [narrationText, setNarrationText] = useState("");
-  const [activeMode, setActiveMode] = useState<NarrationMode | null>(null);
+  const [activeLabel, setActiveLabel] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Clean up speech on unmount
   useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel();
-    };
+    return () => { window.speechSynthesis.cancel(); };
   }, []);
 
-  const handleNarrate = useCallback(async (mode: NarrationMode) => {
-    // Stop any current speech
+  const handleNarrate = useCallback(async (mode: string, label: string) => {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     setIsPaused(false);
-
     setIsGenerating(true);
-    setActiveMode(mode);
+    setActiveLabel(label);
     setNarrationText("");
 
     try {
       const { data, error } = await supabase.functions.invoke("narrate-video", {
-        body: { descriptions, mode },
+        body: { descriptions, mode, captions },
       });
 
       if (error) throw new Error(error.message || "Narration failed");
@@ -45,13 +47,11 @@ const NarrationPlayer = ({ descriptions }: NarrationPlayerProps) => {
       const text = data?.text || "";
       setNarrationText(text);
 
-      // Use browser SpeechSynthesis
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.95;
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      // Try to pick a good voice
       const voices = window.speechSynthesis.getVoices();
       const preferred = voices.find(
         (v) => v.name.includes("Google") && v.lang.startsWith("en")
@@ -59,25 +59,18 @@ const NarrationPlayer = ({ descriptions }: NarrationPlayerProps) => {
       if (preferred) utterance.voice = preferred;
 
       utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setIsPaused(false);
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        setIsPaused(false);
-      };
+      utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
+      utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
 
       utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
-      toast.success(mode === "describe" ? "Playing audio description" : "Playing story narration");
+      toast.success(`Playing ${label}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Narration failed";
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : "Narration failed");
     } finally {
       setIsGenerating(false);
     }
-  }, [descriptions]);
+  }, [descriptions, captions]);
 
   const togglePause = useCallback(() => {
     if (isPaused) {
@@ -95,73 +88,61 @@ const NarrationPlayer = ({ descriptions }: NarrationPlayerProps) => {
     setIsPaused(false);
   }, []);
 
+  const config = MODE_CONFIG[contentMode];
+
+  // For "explain" mode, also show story as a secondary option
+  const showStoryButton = contentMode === "explain";
+
   return (
     <div className="max-w-[960px] mx-auto px-7 pb-6">
-      {/* Buttons */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={() => handleNarrate("describe")}
+          onClick={() => handleNarrate(config.narrationMode, config.label)}
           disabled={isGenerating}
           className="inline-flex items-center gap-2 text-[13px] font-medium font-mono bg-foreground text-background px-4 py-2.5 rounded-lg transition-all hover:opacity-90 disabled:opacity-50"
         >
-          {isGenerating && activeMode === "describe" ? (
+          {isGenerating && activeLabel === config.label ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
               Generating…
             </>
           ) : (
             <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              </svg>
-              Audio Description
+              <span>{config.icon}</span>
+              {config.label.replace(/^[^\s]+\s/, "")}
             </>
           )}
         </button>
 
-        <button
-          onClick={() => handleNarrate("story")}
-          disabled={isGenerating}
-          className="inline-flex items-center gap-2 text-[13px] font-medium font-mono border border-border-strong text-foreground px-4 py-2.5 rounded-lg transition-all hover:bg-surface disabled:opacity-50"
-        >
-          {isGenerating && activeMode === "story" ? (
-            <>
-              <span className="w-3.5 h-3.5 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-              Generating…
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              Listen as Story
-            </>
-          )}
-        </button>
+        {showStoryButton && (
+          <button
+            onClick={() => handleNarrate("story", "📖 Story")}
+            disabled={isGenerating}
+            className="inline-flex items-center gap-2 text-[13px] font-medium font-mono border border-border-strong text-foreground px-4 py-2.5 rounded-lg transition-all hover:bg-surface disabled:opacity-50"
+          >
+            {isGenerating && activeLabel === "📖 Story" ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>📖 Listen as Story</>
+            )}
+          </button>
+        )}
 
-        {/* Playback controls */}
         {isSpeaking && (
           <div className="flex items-center gap-2 ml-2">
-            <button
-              onClick={togglePause}
-              className="text-[12px] font-mono text-ink2 border border-border rounded-md px-2.5 py-1.5 hover:bg-surface transition-colors"
-            >
+            <button onClick={togglePause} className="text-[12px] font-mono text-ink2 border border-border rounded-md px-2.5 py-1.5 hover:bg-surface transition-colors">
               {isPaused ? "▶ Resume" : "⏸ Pause"}
             </button>
-            <button
-              onClick={stopSpeaking}
-              className="text-[12px] font-mono text-destructive border border-destructive/20 rounded-md px-2.5 py-1.5 hover:bg-destructive/10 transition-colors"
-            >
+            <button onClick={stopSpeaking} className="text-[12px] font-mono text-destructive border border-destructive/20 rounded-md px-2.5 py-1.5 hover:bg-destructive/10 transition-colors">
               ■ Stop
             </button>
           </div>
         )}
       </div>
 
-      {/* Narration text */}
       <AnimatePresence>
         {narrationText && (
           <motion.div
@@ -174,8 +155,13 @@ const NarrationPlayer = ({ descriptions }: NarrationPlayerProps) => {
             <div className="bg-surface border border-border rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[11px] font-mono font-medium text-accent-foreground bg-accent rounded-full px-2.5 py-[3px] tracking-wide">
-                  {activeMode === "describe" ? "🔊 Audio Description" : "📖 Story"}
+                  {activeLabel}
                 </span>
+                {captions && (
+                  <span className="text-[11px] font-mono text-ink3 bg-surface-2 rounded-full px-2.5 py-[3px]">
+                    + transcript
+                  </span>
+                )}
                 {isSpeaking && (
                   <span className="flex items-center gap-1.5 text-[11px] font-mono text-ink3">
                     <span className="w-1.5 h-1.5 bg-accent-foreground rounded-full animate-[pulse-dot_1s_infinite]" />
