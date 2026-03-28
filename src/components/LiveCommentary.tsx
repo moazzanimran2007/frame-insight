@@ -62,6 +62,28 @@ const LiveCommentary = ({ videoUrl, descriptions, contentMode, captions }: LiveC
   const activeSegmentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Load browser voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length > 0) {
+        setVoices(available);
+        if (!selectedVoiceURI) {
+          const preferred = available.find(
+            (v) => v.name.includes("Google") && v.lang.startsWith("en")
+          ) || available.find((v) => v.lang.startsWith("en"));
+          if (preferred) setSelectedVoiceURI(preferred.voiceURI);
+        }
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
   // Load YouTube IFrame API
   useEffect(() => {
     if (!videoId) return;
