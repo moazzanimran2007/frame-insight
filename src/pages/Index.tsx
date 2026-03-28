@@ -40,6 +40,7 @@ const Index = () => {
     setIsLoading(true);
     setFrames([]);
     setError("");
+    setCurrentVideoUrl(url);
     setStatusMsg(STATUS_MSGS[0]);
     setProgress({ processed: 0, total: 1 });
 
