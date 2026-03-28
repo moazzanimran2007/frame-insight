@@ -226,28 +226,64 @@ const LiveCommentary = ({ videoUrl, descriptions, contentMode, captions }: LiveC
 
   return (
     <div className="max-w-[1200px] mx-auto px-7 pt-8 pb-6">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <h2 className="font-serif text-[22px] font-normal text-foreground flex items-center gap-2">
           <span className="text-lg">🎙</span> Live Commentary
         </h2>
-        {!generated && (
-          <button
-            onClick={generateCommentary}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-2 text-[13px] font-medium font-mono bg-foreground text-background px-4 py-2.5 rounded-lg transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                Generating commentary…
-              </>
-            ) : (
-              <>
-                {config.icon} Generate {config.label.replace(/^[^\s]+\s/, "")} Commentary
-              </>
-            )}
-          </button>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Voice toggle & selector */}
+          {generated && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setVoiceEnabled((v) => {
+                    if (v) window.speechSynthesis.cancel();
+                    return !v;
+                  });
+                }}
+                className={`text-[12px] font-mono px-3 py-1.5 rounded-md border transition-colors ${
+                  voiceEnabled
+                    ? "bg-accent/20 border-accent/40 text-accent-foreground"
+                    : "border-border text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+              </button>
+              {voiceEnabled && voices.length > 0 && (
+                <select
+                  value={selectedVoiceURI}
+                  onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                  className="text-[11px] font-mono bg-background border border-border rounded-md px-2 py-1.5 text-foreground max-w-[180px] truncate focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {voices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {!generated && (
+            <button
+              onClick={generateCommentary}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-2 text-[13px] font-medium font-mono bg-foreground text-background px-4 py-2.5 rounded-lg transition-all hover:opacity-90 disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                  Generating commentary…
+                </>
+              ) : (
+                <>
+                  {config.icon} Generate {config.label.replace(/^[^\s]+\s/, "")} Commentary
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-5">
