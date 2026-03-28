@@ -173,7 +173,7 @@ export default function VoiceAgent({ frameDescriptions }: VoiceAgentProps) {
     // Wait a tick for final transcript
     await new Promise((r) => setTimeout(r, 200));
 
-    const userText = transcript.trim();
+    const userText = transcriptRef.current.trim();
     if (!userText) return;
 
     const updatedConvo = [...conversation, { role: "user" as const, text: userText }];
