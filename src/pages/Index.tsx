@@ -230,6 +230,8 @@ const Index = () => {
           </div>
         ) : null}
       </section>
+
+      <ChatAssistant />
     </div>
   );
 };
