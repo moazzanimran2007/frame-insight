@@ -166,18 +166,19 @@ const Index = () => {
         </div>
       )}
 
-      {/* YouTube Embed */}
-      {frames.length > 0 && currentVideoUrl && (
-        <YouTubeEmbed videoUrl={currentVideoUrl} />
-      )}
-
-      {/* Narration — for visual/full modes */}
-      {frames.length > 0 && accessMode !== "hearing" && (
-        <NarrationPlayer
+      {/* Live Commentary — replaces separate embed + narration for visual/full */}
+      {frames.length > 0 && currentVideoUrl && accessMode !== "hearing" && (
+        <LiveCommentary
+          videoUrl={currentVideoUrl}
           descriptions={frames.map((f) => `[${f.timestamp}] ${f.description}`)}
           contentMode={contentMode || "explain"}
           captions={captions}
         />
+      )}
+
+      {/* Fallback embed for hearing mode */}
+      {frames.length > 0 && currentVideoUrl && accessMode === "hearing" && (
+        <YouTubeEmbed videoUrl={currentVideoUrl} />
       )}
 
       {/* Subtitles — for hearing mode */}
