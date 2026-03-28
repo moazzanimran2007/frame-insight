@@ -141,6 +141,7 @@ export default function VoiceAgent({ frameDescriptions }: VoiceAgentProps) {
       const results = Array.from(event.results as SpeechRecognitionResultList);
       const text = results.map((r: any) => r[0].transcript).join("");
       setTranscript(text);
+      transcriptRef.current = text;
     };
 
     recognition.onend = async () => {
